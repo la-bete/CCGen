@@ -60,6 +60,7 @@ Constraints and behaviour worth knowing:
 - When a BIN is used (the default, or with `brand` / `issuer`), `contains` and `endsWith` together may be at most 8 digits. With your own `startsWith`, all three together may be at most 10 digits. Longer values throw.
 - `brand` is only included in the output when it is known: when you pass `brand`, or when no filter is passed and a random BIN is picked. Filtering by `issuer` alone or passing `startsWith` returns cards without `brand`.
 - An unknown brand throws `"<brand> is not a recognized brand"`. Verve is not supported yet (there are no Verve BINs in the table) and throws `"The verve brand is not available yet"`.
+- `brand` and `issuer` can be combined. Where the bank has no BINs of that brand in the table (for example `ecobank` or `stanbic` with `visa`, or `access` with `mastercard`), it throws `"BIN issued by <issuer> with brand <brand> is not available"`.
 - An unknown issuer throws `"<issuer> is not a recognized issuer"`.
 - Errors are thrown as plain strings for brand and issuer problems, and as `Error` objects for option-length problems.
 
@@ -102,14 +103,14 @@ Limitation: any PAN shorter than 16 digits returns `false` before the Luhn check
 
 ## Known limitations
 
-- Brand filtering currently resolves to a single BIN per brand, and combining `brand` with `issuer` only succeeds for Zenith Bank; other combinations throw `"BIN issued by <issuer> with brand <brand> is not available"`.
 - Generated PANs are always 16 digits, including when the random BIN is the American Express one (Amex PANs are 15 digits).
+- Creating a second `CCGen` instance in the same process breaks issuer filtering for most banks (only `wema`, `union`, `access`, `zenith` and `ecobank` keep working), because the constructor rewrites the shared BIN table in place. Create one instance and reuse it.
 
 ## Next steps
 
 - Add Verve BINs so `brand: "verve"` works.
 - Support 13-, 15- and 19-digit PANs in both generation and `validatePAN`.
-- Fix the brand index so brand and brand-plus-issuer filters draw from every matching BIN.
+- Stop the constructor mutating the shared BIN table, so multiple instances behave the same.
 - Replace the old Travis CI setup with GitHub Actions.
 
 ## License
