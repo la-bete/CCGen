@@ -23,7 +23,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/La-BeTe/CCGen.git"
+        "url": "git+https://github.com/la-bete/ccgen.git"
     },
     "keywords": [
         "test-card",
@@ -38,9 +38,9 @@
     "author": "La-BeTe",
     "license": "MIT",
     "bugs": {
-        "url": "https://github.com/La-BeTe/CCGen/issues"
+        "url": "https://github.com/la-bete/ccgen/issues"
     },
-    "homepage": "https://github.com/La-BeTe/CCGen#readme",
+    "homepage": "https://github.com/la-bete/ccgen#readme",
     "files": [
         "lib"
     ]
