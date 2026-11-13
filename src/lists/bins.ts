@@ -1,4 +1,20 @@
-export default [
+/** One row of the BIN table. Every row is a BIN registered to Nigeria. */
+export interface BinRecord {
+    readonly bin: string;
+    readonly brand: string;
+    readonly type: string;
+    readonly category: string;
+    readonly issuer: string;
+    readonly alpha_2: string;
+    readonly alpha_3: string;
+    readonly country: string;
+    readonly latitude: string;
+    readonly longitude: string;
+    readonly bank_phone: string;
+    readonly bank_url: string;
+}
+
+const bins: readonly BinRecord[] = [
     {
         bin: "376862",
         brand: "AMERICAN EXPRESS",
@@ -4052,3 +4068,5 @@ export default [
         bank_url: ""
     }
 ];
+
+export default bins;

@@ -1,89 +1,88 @@
 import rng from "../helpers/randomNumberGenerator";
 import names from "../lists/names";
 
-const Issuers = {
-    fcmb: "First City Monument Bank",
-    wema: "Wema Bank PLC",
-    union: "Union Bank of Nigeria",
-    access: "Access Bank PLC",
-    zenith: "Zenith Bank PLC",
-    gtb: "Guaranty Trust Bank PLC",
-    ecobank: "Ecobank Nigeria PLC",
-    stanbic: "Stanbic IBTC Bank",
-    uba: "United Bank for Africa PLC",
-    intercontinental: "Intercontinental Bank PLC",
-    polaris: "Polaris Bank PLC",
-    fbn: "First Bank of Nigeria PLC",
-    scbn: "Standard Chartered Bank"
-};
+export const CARD_ATTRIBUTES = [
+    "name",
+    "cvv",
+    "pan",
+    "expiryDate",
+    "brand",
+    "issuer"
+] as const;
 
+export type CardAttribute = (typeof CARD_ATTRIBUTES)[number];
+
+/**
+ * A generated test card. Which fields are present depends on
+ * `options.attributes`; `brand` and `issuer` are also left out when they are
+ * not known for the PAN.
+ */
+export type Card = Partial<Record<CardAttribute, string>>;
+
+function isCardAttribute(value: unknown): value is CardAttribute {
+    return (CARD_ATTRIBUTES as readonly unknown[]).includes(value);
+}
+
+/** Builds the card details that go with a PAN. */
 export default class CC {
-    private name: string;
-    private cvv: string;
-    private expiryDate: string;
-    private attributes: string[];
-    private issuer: string;
+    private readonly fields: Readonly<
+        Record<CardAttribute, string | undefined>
+    >;
+    private readonly attributes: readonly CardAttribute[];
 
+    /**
+     * @param pan     The generated PAN
+     * @param brand   Brand name, e.g. "VISA", if known
+     * @param issuer  Issuing bank's name, if known
+     * @param attrs   Which fields to include; all of them when omitted or invalid
+     */
     constructor(
-        private pan: string,
-        private brand = "",
-        issuer = "",
-        attrs?: string | string[]
+        pan: string,
+        brand?: string,
+        issuer?: string,
+        attrs?: CardAttribute | readonly CardAttribute[]
     ) {
-        this.name = this.getName();
-        this.cvv = this.getCVV();
-        this.expiryDate = this.getExpiryDate();
-        //@ts-ignore
-        this.issuer = Issuers[issuer];
-        if (attrs && (typeof attrs === "string" || Array.isArray(attrs))) {
-            this.attributes = typeof attrs === "string" ? [attrs] : attrs;
+        this.fields = {
+            name: CC.randomName(),
+            cvv: CC.randomCVV(pan),
+            pan,
+            expiryDate: CC.randomExpiryDate(),
+            brand: brand ? brand.toUpperCase() : undefined,
+            issuer: issuer || undefined
+        };
+        if (typeof attrs === "string") {
+            this.attributes = [attrs];
+        } else if (Array.isArray(attrs)) {
+            this.attributes = attrs;
         } else {
-            this.attributes = [
-                "name",
-                "cvv",
-                "pan",
-                "expiryDate",
-                "brand",
-                "issuer"
-            ];
+            this.attributes = CARD_ATTRIBUTES;
         }
     }
 
-    private getName() {
-        const firstNameIndex = Number(rng({ min: 0, max: names.length - 1 }));
-        const lastNameIndex = Number(rng({ min: 0, max: names.length - 1 }));
-        return `${names[lastNameIndex]} ${names[firstNameIndex]}`;
+    private static randomName(): string {
+        const first = names[Number(rng({ min: 0, max: names.length - 1 }))];
+        const last = names[Number(rng({ min: 0, max: names.length - 1 }))];
+        return `${last} ${first}`;
     }
 
-    private getCVV() {
-        return rng({ length: 3 });
+    /** American Express uses a 4-digit security code; other brands use 3. */
+    private static randomCVV(pan: string): string {
+        return rng({ length: /^3[47]/.test(pan) ? 4 : 3 });
     }
 
-    private getExpiryDate() {
+    private static randomExpiryDate(): string {
         const month = rng({ min: 1, max: 12 }).padStart(2, "0");
-        const currentYear = Number(String(new Date().getFullYear()).slice(-2));
+        const currentYear = new Date().getFullYear() % 100;
         const year = rng({ min: currentYear + 3, max: currentYear + 15 });
-        return `${month}/${year}`;
+        return `${month}/${String(Number(year) % 100).padStart(2, "0")}`;
     }
 
-    get data() {
-        const result: { [x: string]: string } = {};
-        const allowedAttrs = [
-            "name",
-            "pan",
-            "cvv",
-            "expiryDate",
-            "brand",
-            "issuer"
-        ];
-        for (let attr of this.attributes) {
-            if (!allowedAttrs.includes(attr)) continue;
-            //@ts-ignore
-            let thisAttr = this[attr];
-            if (!thisAttr) continue;
-            //@ts-ignore
-            if (attr === "brand") thisAttr = thisAttr.toUpperCase();
-            result[attr] = thisAttr;
+    get data(): Card {
+        const result: Card = {};
+        for (const attr of this.attributes) {
+            if (!isCardAttribute(attr)) continue;
+            const value = this.fields[attr];
+            if (value) result[attr] = value;
         }
         return result;
     }

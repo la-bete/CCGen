@@ -1,141 +1,107 @@
 import panGenerator from "../../src/helpers/panGenerator";
 import luhnChecker from "../../src/helpers/luhnChecker";
+import { CCGenError } from "../../src/errors";
 
-describe("PAN Generator", () => {
-    test("should return a 16 character string by default", () => {
-        expect(panGenerator()).toHaveLength(16);
-    });
-
-    test("should return a longer string if the 'length' argument is passed in", () => {
-        expect(panGenerator({ length: 20 })).toHaveLength(20);
-    });
-
-    test("should return a Luhn-valid PAN", () => {
-        expect(luhnChecker(panGenerator())).toBe(true);
-    });
-
-    test("should return a Luhn-valid PAN that starts with the 'startsWith' argument", () => {
-        const pan = panGenerator({ startsWith: 23456 });
-        expect(pan.startsWith("23456")).toBe(true);
+describe("panGenerator", () => {
+    test("returns a 16-digit Luhn-valid PAN by default", () => {
+        const pan = panGenerator();
+        expect(pan).toMatch(/^\d{16}$/);
         expect(luhnChecker(pan)).toBe(true);
     });
 
-    test("should return a Luhn-valid PAN that ends with the 'endsWith' argument", () => {
-        const pan = panGenerator({ endsWith: 23456 });
-        expect(pan.endsWith("23456")).toBe(true);
+    test.each([12, 13, 15, 16, 19])(
+        "returns a Luhn-valid %i-digit PAN when asked",
+        (length) => {
+            for (let i = 0; i < 200; i++) {
+                const pan = panGenerator({ length });
+                expect(pan).toHaveLength(length);
+                expect(luhnChecker(pan)).toBe(true);
+            }
+        }
+    );
+
+    test.each([11, 20, 15.5])("rejects a length of %p", (length) => {
+        expect(() => panGenerator({ length })).toThrow(CCGenError);
+    });
+
+    test("honours startsWith, contains and endsWith together", () => {
+        for (let i = 0; i < 200; i++) {
+            const pan = panGenerator({
+                startsWith: "1572",
+                contains: "234",
+                endsWith: "347"
+            });
+            expect(pan.startsWith("1572234")).toBe(true);
+            expect(pan.endsWith("347")).toBe(true);
+            expect(luhnChecker(pan)).toBe(true);
+        }
+    });
+
+    test("places contains after index 7 when there is no prefix", () => {
+        const pan = panGenerator({ contains: "23456" });
+        expect(pan.slice(7, 12)).toBe("23456");
         expect(luhnChecker(pan)).toBe(true);
     });
 
-    test("should return a Luhn-valid PAN that contains the 'contains' argument", () => {
-        const pan = panGenerator({ contains: 23456 });
-        expect(pan.includes("23456")).toBe(true);
-        expect(pan.startsWith("23456")).toBe(false);
-        expect(pan.endsWith("23456")).toBe(false);
-        expect(luhnChecker(pan)).toBe(true);
+    test("keeps contains clear of a long endsWith", () => {
+        for (let i = 0; i < 100; i++) {
+            const pan = panGenerator({ contains: "11111", endsWith: "22222" });
+            expect(pan.includes("11111")).toBe(true);
+            expect(pan.endsWith("22222")).toBe(true);
+            expect(luhnChecker(pan)).toBe(true);
+        }
     });
 
-    test("should return a Luhn-valid PAN that strts with the 'startsWith' argument, contains the 'contains' argument and ends with the 'endsWith' argument", () => {
+    test("allows contains + endsWith up to length - 8 after a BIN", () => {
         const pan = panGenerator({
-            startsWith: 1572,
-            contains: 234,
-            endsWith: 347
-        });
-        expect(pan.includes("234")).toBe(true);
-        expect(pan.startsWith("1572")).toBe(true);
-        expect(pan.endsWith("347")).toBe(true);
-        expect(luhnChecker(pan)).toBe(true);
-    });
-
-    test("should return a Luhn-valid PAN that strts with the 'startsWith' argument, contains the 'contains' argument, ends with the 'endsWith' argument and is as long as the 'length' argument", () => {
-        const pan = panGenerator({
-            startsWith: 1572,
-            contains: 234,
-            endsWith: 347,
-            length: 20
-        });
-        expect(pan.includes("234")).toBe(true);
-        expect(pan.startsWith("1572")).toBe(true);
-        expect(pan.endsWith("347")).toBe(true);
-        expect(pan).toHaveLength(20);
-        expect(luhnChecker(pan)).toBe(true);
-    });
-
-    test("should return a Luhn-valid PAN that is 16-digits long if the 'length' argument is less than 16", () => {
-        const pan = panGenerator({
-            startsWith: 1572,
-            contains: 234,
-            endsWith: 347,
-            length: 10
-        });
-        expect(pan.includes("234")).toBe(true);
-        expect(pan.startsWith("1572")).toBe(true);
-        expect(pan.endsWith("347")).toBe(true);
-        expect(pan).toHaveLength(16);
-        expect(luhnChecker(pan)).toBe(true);
-    });
-
-    test("should work with strings", () => {
-        const pan = panGenerator({
-            startsWith: "1572",
-            contains: "234",
-            endsWith: "347",
-            length: "20"
-        });
-        expect(pan.includes("234")).toBe(true);
-        expect(pan.startsWith("1572")).toBe(true);
-        expect(pan.endsWith("347")).toBe(true);
-        expect(pan).toHaveLength(20);
-        expect(luhnChecker(pan)).toBe(true);
-    });
-
-    test("should work if an object containing the expected arguments is passed in", () => {
-        const pan = panGenerator({
-            startsWith: 1572,
-            contains: 234,
-            endsWith: 347,
-            length: 20
-        });
-        expect(pan.includes("234")).toBe(true);
-        expect(pan.startsWith("1572")).toBe(true);
-        expect(pan.endsWith("347")).toBe(true);
-        expect(pan).toHaveLength(20);
-        expect(luhnChecker(pan)).toBe(true);
-    });
-
-    test("should accept a 10-digit long 'endsWith' or 'contains' even if 'startsWith' is passed as long as 'startsWithIsBin' is true", () => {
-        const pan = panGenerator({
-            startsWith: 157235,
-            endsWith: 3474,
-            contains: 2345,
+            startsWith: "157235",
+            contains: "2345",
+            endsWith: "3474",
             startsWithIsBin: true
         });
-        expect(pan.startsWith("157235")).toBe(true);
+        expect(pan.startsWith("1572352345")).toBe(true);
         expect(pan.endsWith("3474")).toBe(true);
-        expect(pan.includes("2345")).toBe(true);
         expect(luhnChecker(pan)).toBe(true);
+
+        const amex = panGenerator({
+            startsWith: "376862",
+            contains: "123",
+            endsWith: "4567",
+            startsWithIsBin: true,
+            length: 15
+        });
+        expect(amex).toHaveLength(15);
+        expect(luhnChecker(amex)).toBe(true);
     });
 
-    test("should throw an error if the 'contains' and 'endsWith' arguments have a combined length greater than 8", () => {
+    test("rejects modifiers that leave too few free digits", () => {
         expect(() =>
             panGenerator({
-                startsWith: 157235,
-                endsWith: 34745,
-                contains: 2345,
+                startsWith: "157235",
+                contains: "2345",
+                endsWith: "34745",
                 startsWithIsBin: true
             })
         ).toThrow(
-            "The 'contains' and 'endsWith' argument should have a combined length less than or equal to 8"
+            "'contains' and 'endsWith' can be at most 8 digits combined for a 16-digit PAN"
+        );
+        expect(() =>
+            panGenerator({
+                startsWith: "376862",
+                contains: "1234",
+                endsWith: "5678",
+                startsWithIsBin: true,
+                length: 15
+            })
+        ).toThrow("at most 7 digits combined for a 15-digit PAN");
+        expect(() => panGenerator({ startsWith: "12344567890" })).toThrow(
+            "'startsWith', 'contains' and 'endsWith' can be at most 10 digits combined for a 16-digit PAN"
         );
     });
 
-    test("should throw an error if the 'startsWith', 'contains' and 'endsWith' arguments have a combined length greater than 10", () => {
-        expect(() => panGenerator({ startsWith: "123445678903" })).toThrow(
-            "The 'startsWith', 'contains' and 'endsWith' argument should have a combined length less than or equal to 10"
-        );
-        expect(() =>
-            panGenerator({ startsWith: "12344567", endsWith: 36363636 })
-        ).toThrow(
-            "The 'startsWith', 'contains' and 'endsWith' argument should have a combined length less than or equal to 10"
+    test("rejects non-digit modifiers", () => {
+        expect(() => panGenerator({ endsWith: "12a" })).toThrow(
+            `'endsWith' must contain digits only, got "12a"`
         );
     });
 });
