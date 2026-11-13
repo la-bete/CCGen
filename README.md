@@ -61,7 +61,7 @@ Constraints and behaviour worth knowing:
 - `brand` is only included in the output when it is known: when you pass `brand`, or when no filter is passed and a random BIN is picked. Filtering by `issuer` alone or passing `startsWith` returns cards without `brand`.
 - An unknown brand throws `"<brand> is not a recognized brand"`. Verve is not supported yet (there are no Verve BINs in the table) and throws `"The verve brand is not available yet"`.
 - `brand` and `issuer` can be combined. Where the bank has no BINs of that brand in the table (for example `ecobank` or `stanbic` with `visa`, or `access` with `mastercard`), it throws `"BIN issued by <issuer> with brand <brand> is not available"`.
-- An unknown issuer throws `"<issuer> is not a recognized issuer"`.
+- An unknown issuer throws `"'<issuer>' is not a recognized issuer"` (issuer name in quotes) when used alone, and `"<issuer> is not a recognized issuer"` (no quotes) when combined with `brand`.
 - Errors are thrown as plain strings for brand and issuer problems, and as `Error` objects for option-length problems.
 
 ### Available issuers
