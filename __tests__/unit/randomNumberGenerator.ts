@@ -12,6 +12,29 @@ describe("Random Number Generator", () => {
         }
     });
 
+    test("should be able to return both min and max", () => {
+        const seen = new Set<string>();
+        for (let i = 0; i < 2000; i++) {
+            seen.add(rng({ min: 1, max: 12 }));
+        }
+        expect([...seen].map(Number).sort((a, b) => a - b)).toEqual([
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+        ]);
+    });
+
+    test("should spread results evenly between min and max", () => {
+        const counts = [0, 0, 0, 0];
+        const draws = 40000;
+        for (let i = 0; i < draws; i++) {
+            counts[Number(rng({ min: 0, max: 3 }))]++;
+        }
+        for (const count of counts) {
+            // Each bucket expects 10000; allow a wide margin
+            expect(count).toBeGreaterThan(9000);
+            expect(count).toBeLessThan(11000);
+        }
+    });
+
     test("should reverse min and max silently if max is less than min", () => {
         const result = rng({
             min: 100000,
