@@ -1,6 +1,5 @@
 # CCGen
 
-[![CI](https://github.com/la-bete/ccgen/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/la-bete/ccgen/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/la-bete/ccgen/branch/master/graph/badge.svg?token=6PGAIGKMET)](https://codecov.io/gh/la-bete/ccgen)
 
 CCGen generates Luhn-valid test card numbers (PANs) from a table of real Nigerian issuer BINs, so test data looks like cards a Nigerian payment flow would actually see. Cards can be filtered by brand, issuer, prefix, suffix or an embedded digit sequence, and come with a random cardholder name, CVV and future expiry date. It also exposes a Luhn validator.
@@ -12,7 +11,6 @@ The numbers are for testing only. They pass the Luhn check but are not linked to
 - TypeScript
 - Node.js
 - Jest
-- GitHub Actions
 
 ## Installation
 

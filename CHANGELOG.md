@@ -32,7 +32,7 @@ First major release. It fixes several correctness bugs, some of which change beh
 - 0.1.x could not be built on a fresh install (TypeScript 4.9 could not parse the current `@types/node`); `@types/node` is now pinned to the Node 22 line.
 - Tests run on Jest 30 with ts-jest; `npm test` works without workarounds.
 - `package-lock.json` is committed.
-- Travis CI is replaced by GitHub Actions (Node 20 and 22, with Codecov upload).
+- The unused Travis CI config (Node 12) is removed.
 - New exports: `CCGenError`, `ISSUERS`, `CARD_ATTRIBUTES`, and the types `Card`, `CardAttribute`, `GenerateCCOptions`, `CCGenErrorCode`, `IssuerKey`, `Brand`.
 
 ## 0.1.2
