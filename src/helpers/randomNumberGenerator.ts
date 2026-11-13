@@ -45,9 +45,9 @@ export default function (options: Options) {
                 )}'`
             );
         if (numMax < numMin) [numMin, numMax] = [numMax, numMin];
-        const randomNum = Math.floor(
-            Math.random() * Math.random() * (numMax - numMin) + numMin
-        );
+        // Uniform integer in [min, max], both ends inclusive
+        const randomNum =
+            Math.floor(Math.random() * (numMax - numMin + 1)) + numMin;
         result = String(randomNum);
     }
     return result;
