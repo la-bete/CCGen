@@ -8,7 +8,7 @@ function stringify(arg: unknown) {
     return typeof arg === "string" ? arg : JSON.stringify(arg);
 }
 
-export default function (options: Options) {
+export default function randomNumberGenerator(options: Options): string {
     if (typeof options !== "object")
         throw new Error(
             `Random Number Generator expects an object argument, got '${options}'`
@@ -24,10 +24,8 @@ export default function (options: Options) {
                     length
                 )}'`
             );
-        while (result.length < length) {
-            const randomNum =
-                Math.floor(Math.random() * Date.now() * Math.random()) % 10;
-            result += randomNum;
+        while (result.length < numLength) {
+            result += Math.floor(Math.random() * 10);
         }
     } else {
         let numMin = Number(min);

@@ -1,4 +1,4 @@
-export default [
+const names: readonly string[] = [
     "Aaberg",
     "Aalst",
     "Aara",
@@ -21986,3 +21986,5 @@ export default [
     "Zwiebel",
     "Zysk"
 ];
+
+export default names;

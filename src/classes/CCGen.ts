@@ -1,186 +1,242 @@
+import { CCGenError } from "../errors";
 import luhnChecker from "../helpers/luhnChecker";
-import panGen from "../helpers/panGenerator";
+import panGen, {
+    MAX_PAN_LENGTH,
+    MIN_PAN_LENGTH
+} from "../helpers/panGenerator";
 import rng from "../helpers/randomNumberGenerator";
 import binList from "../lists/bins";
-import CC from "./CC";
+import {
+    Brand,
+    brandFromOption,
+    brandFromPrefix,
+    panLengthFor,
+    UNAVAILABLE_BRANDS
+} from "../lists/brands";
+import {
+    isIssuerKey,
+    ISSUERS,
+    IssuerKey,
+    issuerKeyFor
+} from "../lists/issuers";
+import CC, { Card, CardAttribute } from "./CC";
 
-interface GenerateCCOptions {
-    attributes?: string | string[];
-    amount?: string | number;
-    startsWith?: string | number;
-    endsWith?: string | number;
-    contains?: string | number;
+export interface GenerateCCOptions {
+    /** `visa`, `mastercard`, `amex` / `american express` or `maestro`. */
     brand?: string;
+    /** One of the keys of `ISSUERS`, e.g. `gtb`. */
     issuer?: string;
+    /** Your own leading digits. Ignored when `brand` or `issuer` is set. */
+    startsWith?: string | number;
+    /** Digits to place straight after the prefix. */
+    contains?: string | number;
+    /** Digits the PAN should end with. */
+    endsWith?: string | number;
+    /** Fields to include in each card. Defaults to all of them. */
+    attributes?: CardAttribute | readonly CardAttribute[];
+}
+
+/** A BIN from the table, with brand and issuer resolved once. */
+interface IndexedBin {
+    readonly bin: string;
+    readonly brand: Brand | undefined;
+    readonly issuer: IssuerKey | null;
+}
+
+function toDigitString(name: string, value: string | number | undefined) {
+    if (value === undefined || value === "") return undefined;
+    if (typeof value === "number" && !Number.isSafeInteger(value)) {
+        throw new CCGenError(
+            "INVALID_OPTION",
+            `'${name}' is too large to be passed as a number; pass it as a string`
+        );
+    }
+    return String(value);
+}
+
+function pick<T>(items: readonly T[]): T {
+    return items[Number(rng({ min: 0, max: items.length - 1 }))];
 }
 
 export default class CCGen {
-    /*
-     * The 'indexes' variable allows for fast fetching of bins
-     * It is a Map of a string representing the property being indexed
-     * to a Map of each of the possible property values mapped
-     * to an array containing indexes that have that property value in the binList variable above
-     */
-    private indexes: Map<string, Map<string, Array<number>>>;
+    /** Every BIN in the table, resolved once. The source table is never modified. */
+    private readonly bins: readonly IndexedBin[];
+    private readonly byBrand: ReadonlyMap<Brand, readonly IndexedBin[]>;
+    private readonly byIssuer: ReadonlyMap<IssuerKey, readonly IndexedBin[]>;
 
     constructor() {
-        this.indexes = new Map();
-        this.createIndexes();
-    }
-
-    private getIndexedBrand(arg: string) {
-        const brand = this.indexes.get("brand");
-        if (brand) {
-            return brand.get(arg.toLowerCase());
-        }
-        return undefined;
-    }
-
-    private getIndexedIssuer(arg: string) {
-        const issuer = this.indexes.get("issuer");
-        if (issuer) {
-            return issuer.get(arg.toLowerCase());
-        }
-        return undefined;
-    }
-
-    private normalizeIssuer(issuer: string) {
-        const obj = {
-            "first city monument": "fcmb",
-            wema: "wema",
-            union: "union",
-            access: "access",
-            zenith: "zenith",
-            "guaranty trust bank": "gtb",
-            ecobank: "ecobank",
-            "stanbic ibtc": "stanbic",
-            "united bank for africa": "uba",
-            "intercontinental bank": "intercontinental",
-            skye: "polaris",
-            "standard chartered bank": "scbn",
-            "first bank": "fbn"
-        };
-        for (const each in obj) {
-            const regex = new RegExp(each, "i");
-            // @ts-ignore
-            if (regex.test(issuer)) return obj[each];
-        }
-        return null;
-    }
-
-    private createIndexes() {
-        // Array of properties of the binList I want to index
-        const indexes = ["brand", "issuer"];
-        for (const index of indexes) {
-            this.indexes.set(index, new Map());
-        }
-        binList.forEach((bin: { [x: string]: string }, i) => {
-            bin.issuer = this.normalizeIssuer(bin.issuer);
-            if (!bin.issuer) return;
-            for (const each of indexes) {
-                const index = this.indexes.get(each);
-                if (index) {
-                    // Store and look up with the same (lowercased) key, so every
-                    // BIN with a given value is kept rather than overwritten
-                    const key = bin[each].toLowerCase();
-                    const map = index.get(key);
-                    if (map) {
-                        map.push(i);
-                    } else {
-                        index.set(key, [i]);
-                    }
-                }
+        const byBrand = new Map<Brand, IndexedBin[]>();
+        const byIssuer = new Map<IssuerKey, IndexedBin[]>();
+        this.bins = binList.map((record) => {
+            const entry: IndexedBin = {
+                bin: record.bin,
+                brand: brandFromOption(record.brand),
+                issuer: issuerKeyFor(record.issuer)
+            };
+            if (entry.brand) {
+                const list = byBrand.get(entry.brand) ?? [];
+                list.push(entry);
+                byBrand.set(entry.brand, list);
             }
+            if (entry.issuer) {
+                const list = byIssuer.get(entry.issuer) ?? [];
+                list.push(entry);
+                byIssuer.set(entry.issuer, list);
+            }
+            return entry;
         });
+        this.byBrand = byBrand;
+        this.byIssuer = byIssuer;
     }
 
-    generateCC({
-        startsWith,
-        endsWith,
-        contains,
-        amount,
-        attributes,
-        brand,
-        issuer
-    }: GenerateCCOptions = {}) {
-        let startsWithIsBin = true;
-        amount = amount ? this.validateNumber(amount) : 1;
-        const results = [];
-        for (let i = 0; i < amount; i++) {
-            let pan: string;
-            if (brand) {
-                const indexedBrandOriginal = this.getIndexedBrand(brand);
-                if (indexedBrandOriginal) {
-                    let indexedBrand = [...indexedBrandOriginal];
-                    if (issuer) {
-                        const indexedIssuer = this.getIndexedIssuer(issuer);
-                        if (!indexedIssuer)
-                            throw `${issuer} is not a recognized issuer`;
-                        // Filter indexed brand list based on passed in issuer
-                        indexedBrand = indexedBrand.filter((brand) => {
-                            return indexedIssuer.includes(brand);
-                        });
-                        if (!indexedBrand.length)
-                            throw `BIN issued by ${issuer} with brand ${brand} is not available`;
-                    }
-                    const randomIndex = rng({
-                        min: 0,
-                        max: indexedBrand.length - 1
-                    });
-                    const index = indexedBrand[Number(randomIndex)];
-                    startsWith = binList[index].bin;
-                } else {
-                    if (["mastercard", "visa", "verve"].includes(brand))
-                        throw `The ${brand} brand is not available yet`;
-                    throw `${brand} is not a recognized brand`;
-                }
-            } else if (issuer) {
-                const indexedIssuer = this.getIndexedIssuer(issuer);
-                if (!indexedIssuer)
-                    throw `'${issuer}' is not a recognized issuer`;
-                const randomIndex = rng({
-                    min: 0,
-                    max: indexedIssuer.length - 1
-                });
-                const index = indexedIssuer[Number(randomIndex)];
-                startsWith = binList[index].bin;
-            } else if (!startsWith) {
-                const index = Number(
-                    rng({
-                        min: 0,
-                        max: binList.length - 1
-                    })
+    /** Generate one card. */
+    generateCC(options?: GenerateCCOptions): Card;
+    /** Generate `amount` cards. Always returns an array, even for 1. */
+    generateCC(options: GenerateCCOptions & { amount: number }): Card[];
+    generateCC(options: GenerateCCOptions & { amount?: number }): Card | Card[];
+    generateCC(
+        options: GenerateCCOptions & { amount?: number } = {}
+    ): Card | Card[] {
+        if (options.amount === undefined) return this.generateOne(options);
+        const amount = Number(options.amount);
+        if (!Number.isInteger(amount) || amount < 1) {
+            throw new CCGenError(
+                "INVALID_OPTION",
+                `'amount' must be a positive integer, got ${options.amount}`
+            );
+        }
+        return Array.from({ length: amount }, () => this.generateOne(options));
+    }
+
+    private candidates(brandOption?: string, issuerOption?: string) {
+        let brand: Brand | undefined;
+        if (brandOption !== undefined) {
+            const key = brandOption.trim().toLowerCase();
+            if (UNAVAILABLE_BRANDS.includes(key)) {
+                throw new CCGenError(
+                    "BRAND_NOT_AVAILABLE",
+                    `Brand "${brandOption}" is not available yet: there are no BINs for it`
                 );
-                startsWith = binList[index].bin;
-                brand = binList[index].brand;
-            } else if (startsWith) {
-                startsWithIsBin = false;
             }
-            pan = panGen({ startsWith, endsWith, contains, startsWithIsBin });
-            const cc = new CC(pan, brand, issuer, attributes);
-            results.push(cc.data);
+            brand = brandFromOption(key);
+            if (!brand) {
+                throw new CCGenError(
+                    "UNKNOWN_BRAND",
+                    `Unknown brand "${brandOption}"`
+                );
+            }
         }
-        return results.length === 1 ? results[0] : results;
+        let issuer: IssuerKey | undefined;
+        if (issuerOption !== undefined) {
+            const key = issuerOption.trim().toLowerCase();
+            if (!isIssuerKey(key)) {
+                throw new CCGenError(
+                    "UNKNOWN_ISSUER",
+                    `Unknown issuer "${issuerOption}"`
+                );
+            }
+            issuer = key;
+        }
+
+        let list: readonly IndexedBin[] = brand
+            ? (this.byBrand.get(brand) ?? [])
+            : issuer
+              ? (this.byIssuer.get(issuer) ?? [])
+              : this.bins;
+        if (brand && issuer) list = list.filter((b) => b.issuer === issuer);
+        if (list.length === 0) {
+            const what = [
+                brand && `brand "${brandOption}"`,
+                issuer && `issuer "${issuerOption}"`
+            ]
+                .filter(Boolean)
+                .join(" and ");
+            throw new CCGenError("NO_MATCHING_BIN", `No BINs for ${what}`);
+        }
+        return list;
     }
 
-    private validateNumber(
-        suspectedNumber: unknown,
-        errorMessage = `${suspectedNumber} is not a number`
-    ) {
-        const tempNum = Number(suspectedNumber);
-        if (Number.isNaN(tempNum)) throw new Error(errorMessage);
-        return tempNum;
+    private generateOne(options: GenerateCCOptions): Card {
+        const contains = toDigitString("contains", options.contains);
+        const endsWith = toDigitString("endsWith", options.endsWith);
+        const startsWith = toDigitString("startsWith", options.startsWith);
+
+        let pan: string;
+        let brand: Brand | undefined;
+        let issuer: IssuerKey | null = null;
+
+        const useTable =
+            options.brand !== undefined ||
+            options.issuer !== undefined ||
+            startsWith === undefined;
+
+        if (useTable) {
+            const chosen = pick(this.candidates(options.brand, options.issuer));
+            brand = chosen.brand;
+            issuer = chosen.issuer;
+            pan = panGen({
+                startsWith: chosen.bin,
+                startsWithIsBin: true,
+                contains,
+                endsWith,
+                length: panLengthFor(brand)
+            });
+        } else {
+            // Caller's own prefix: use the table's details if it starts with
+            // a known BIN, otherwise infer the brand from the prefix
+            const known = this.bins.find((b) => startsWith!.startsWith(b.bin));
+            brand = known ? known.brand : brandFromPrefix(startsWith!);
+            issuer = known ? known.issuer : null;
+            pan = panGen({
+                startsWith,
+                contains,
+                endsWith,
+                length: panLengthFor(brand)
+            });
+        }
+
+        return new CC(
+            pan,
+            brand,
+            issuer ? ISSUERS[issuer] : undefined,
+            options.attributes
+        ).data;
     }
 
-    validatePAN<T extends string | number>(...pans: T[]) {
-        const result: { [x: string]: boolean } = {};
+    /**
+     * Check one PAN: true when it is 12 to 19 digits and passes the Luhn check.
+     * Numbers above Number.MAX_SAFE_INTEGER cannot be represented exactly, so
+     * they throw; pass long PANs as strings.
+     */
+    validatePAN(pan: string | number): boolean;
+    /** Check several PANs. Returns an object keyed by PAN. */
+    validatePAN(
+        first: string | number,
+        second: string | number,
+        ...rest: (string | number)[]
+    ): Record<string, boolean>;
+    validatePAN(
+        ...pans: (string | number)[]
+    ): boolean | Record<string, boolean> {
+        const result: Record<string, boolean> = {};
         for (const pan of pans) {
-            if (String(pan).length < 16) {
-                result[pan] = false;
-            } else {
-                result[pan] = luhnChecker(pan) as boolean;
-            }
+            result[String(pan)] = CCGen.isValidPAN(pan);
         }
-        return pans.length === 1 ? result[pans[0]] : result;
+        return pans.length === 1 ? result[String(pans[0])] : result;
+    }
+
+    private static isValidPAN(pan: string | number): boolean {
+        if (typeof pan === "number" && !Number.isSafeInteger(pan)) {
+            throw new CCGenError(
+                "INVALID_OPTION",
+                `${pan} is too large to be passed as a number; pass it as a string`
+            );
+        }
+        const digits = String(pan);
+        return (
+            digits.length >= MIN_PAN_LENGTH &&
+            digits.length <= MAX_PAN_LENGTH &&
+            luhnChecker(digits)
+        );
     }
 }
