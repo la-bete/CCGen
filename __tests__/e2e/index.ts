@@ -1,4 +1,6 @@
 import { CCGen } from "../../src";
+import binList from "../../src/lists/bins";
+import luhnChecker from "../../src/helpers/luhnChecker";
 
 const ccgen = new CCGen();
 describe("CCGen class instance", () => {
@@ -61,6 +63,66 @@ describe("CCGen class instance", () => {
             });
             expect(issuer).toBe("Zenith Bank PLC");
             expect(String(pan).startsWith("4")).toBe(true);
+        });
+
+        test("that draws from every BIN of the 'brand' argument, not just one", () => {
+            for (const brand of ["visa", "mastercard"]) {
+                const bins = new Set<string>();
+                const cards = ccgen.generateCC({ brand, amount: 500 });
+                for (const { pan, brand: cardBrand } of cards) {
+                    bins.add(pan.slice(0, 6));
+                    expect(cardBrand).toBe(brand.toUpperCase());
+                }
+                expect(bins.size).toBeGreaterThan(10);
+            }
+        });
+
+        test("that supports 'brand' with every 'issuer' that has BINs of that brand", () => {
+            // The constructor normalises each BIN's issuer to its key (or null)
+            const issuers = [
+                "fcmb", "wema", "union", "access", "zenith", "gtb", "ecobank",
+                "stanbic", "uba", "intercontinental", "polaris", "fbn", "scbn"
+            ];
+            for (const brand of ["visa", "mastercard"]) {
+                for (const issuer of issuers) {
+                    const issuerBins = new Set(
+                        binList
+                            .filter(
+                                (b) =>
+                                    b.issuer === issuer &&
+                                    b.brand.toLowerCase() === brand
+                            )
+                            .map((b) => b.bin)
+                    );
+                    const run = () =>
+                        ccgen.generateCC({ brand, issuer, amount: 20 });
+                    if (issuerBins.size === 0) {
+                        expect(run).toThrow(
+                            `BIN issued by ${issuer} with brand ${brand} is not available`
+                        );
+                    } else {
+                        for (const { pan } of run()) {
+                            expect(issuerBins.has(pan.slice(0, 6))).toBe(true);
+                        }
+                    }
+                }
+            }
+        });
+
+        test("that only ever returns Luhn-valid PANs", () => {
+            const optionSets = [
+                {},
+                { brand: "visa" },
+                { brand: "mastercard", endsWith: "42" },
+                { issuer: "gtb", contains: "777" },
+                { startsWith: "4111", endsWith: "99" }
+            ];
+            for (const options of optionSets) {
+                const cards = ccgen.generateCC({ ...options, amount: 400 });
+                for (const { pan } of cards) {
+                    expect(luhnChecker(pan)).toBe(true);
+                }
+            }
         });
 
         test("that throws an error if the 'issuer' passed in does not issue cards of the 'brand' argument", () => {

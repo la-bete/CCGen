@@ -80,11 +80,14 @@ export default class CCGen {
             for (const each of indexes) {
                 const index = this.indexes.get(each);
                 if (index) {
-                    const map = index.get(bin[each]);
+                    // Store and look up with the same (lowercased) key, so every
+                    // BIN with a given value is kept rather than overwritten
+                    const key = bin[each].toLowerCase();
+                    const map = index.get(key);
                     if (map) {
                         map.push(i);
                     } else {
-                        index.set(bin[each].toLowerCase(), [i]);
+                        index.set(key, [i]);
                     }
                 }
             }

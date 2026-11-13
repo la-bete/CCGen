@@ -50,8 +50,8 @@ export default class CC {
     }
 
     private getName() {
-        const firstNameIndex = Number(rng({ min: 0, max: names.length }));
-        const lastNameIndex = Number(rng({ min: 0, max: names.length }));
+        const firstNameIndex = Number(rng({ min: 0, max: names.length - 1 }));
+        const lastNameIndex = Number(rng({ min: 0, max: names.length - 1 }));
         return `${names[lastNameIndex]} ${names[firstNameIndex]}`;
     }
 

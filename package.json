@@ -1,7 +1,7 @@
 {
     "name": "@la-bete/ccgen",
     "version": "0.1.2",
-    "description": "Generate valid credit card numbers",
+    "description": "Generate Luhn-valid test card numbers from Nigerian issuer BINs",
     "main": "./lib",
     "types": "./lib/index.d.ts",
     "dependencies": {},
@@ -23,19 +23,24 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/La-BeTe/CCGen.git"
+        "url": "git+https://github.com/la-bete/ccgen.git"
     },
     "keywords": [
-        "credit",
-        "card",
+        "test-card",
+        "card-number",
+        "pan",
+        "bin",
+        "luhn",
+        "nigeria",
+        "payments",
         "generator"
     ],
     "author": "La-BeTe",
     "license": "MIT",
     "bugs": {
-        "url": "https://github.com/La-BeTe/CCGen/issues"
+        "url": "https://github.com/la-bete/ccgen/issues"
     },
-    "homepage": "https://github.com/La-BeTe/CCGen#readme",
+    "homepage": "https://github.com/la-bete/ccgen#readme",
     "files": [
         "lib"
     ]
