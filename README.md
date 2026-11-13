@@ -1,6 +1,5 @@
 # CCGen
 
-[![codecov](https://codecov.io/gh/la-bete/ccgen/branch/master/graph/badge.svg?token=6PGAIGKMET)](https://codecov.io/gh/la-bete/ccgen)
 [![CI](https://github.com/la-bete/ccgen/actions/workflows/ci.yml/badge.svg)](https://github.com/la-bete/ccgen/actions/workflows/ci.yml)
 
 CCGen generates Luhn-valid test card numbers (PANs) from a table of real Nigerian issuer BINs, so test data looks like cards a Nigerian payment flow would actually see. Cards can be filtered by brand, issuer, prefix, suffix or an embedded digit sequence, and come with a random cardholder name, CVV and future expiry date. It also exposes a Luhn validator.
@@ -162,3 +161,11 @@ The check is format and Luhn only. It does not check that the prefix belongs to 
 ## License
 
 MIT
+
+## Releasing
+
+1. Bump `version` in `package.json` (and add a `CHANGELOG.md` entry) in a pull request, and merge it.
+2. Publish a GitHub Release whose tag is that version with a `v` in front, e.g. `gh release create v1.2.3 --generate-notes`.
+3. The `Release` workflow checks the tag matches `package.json`, builds, tests and publishes to npm, with provenance.
+
+CI fails if test coverage drops below the floor set in `jest.config.js`; each CI run shows the coverage table in its summary.

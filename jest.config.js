@@ -10,6 +10,8 @@ module.exports = {
         "!src/lists/names.ts"
     ],
     coverageDirectory: "coverage",
-    coverageReporters: ["text", "lcov"],
+    coverageReporters: ["text", "json-summary"],
+    // CI fails if coverage drops below these
+    coverageThreshold: { global: { statements: 95, branches: 90, functions: 95, lines: 95 } },
     clearMocks: true
 };
