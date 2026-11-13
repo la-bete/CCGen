@@ -104,6 +104,3 @@ dist
 .tern-port
 
 lib/
-
-# Build output
-lib/
